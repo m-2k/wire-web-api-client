@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "/";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 92);
+/******/ 	return __webpack_require__(__webpack_require__.s = 93);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -1049,7 +1049,7 @@ var ContentType_1 = __webpack_require__(43);
 exports.ContentType = ContentType_1.default;
 var HttpClient_1 = __webpack_require__(44);
 exports.HttpClient = HttpClient_1.default;
-var StatusCode_1 = __webpack_require__(67);
+var StatusCode_1 = __webpack_require__(68);
 exports.StatusCode = StatusCode_1.default;
 
 
@@ -1102,7 +1102,8 @@ module.exports = function xhrAdapter(config) {
     // For IE 8/9 CORS support
     // Only supports POST and GET calls and doesn't returns the response headers.
     // DON'T do this for testing b/c XMLHttpRequest is mocked, not XDomainRequest.
-    if (process.env.NODE_ENV !== 'test' &&
+    if (!window.XMLHttpRequest &&
+        process.env.NODE_ENV !== 'test' &&
         typeof window !== 'undefined' &&
         window.XDomainRequest && !('withCredentials' in request) &&
         !isURLSameOrigin(config.url)) {
@@ -1144,7 +1145,7 @@ module.exports = function xhrAdapter(config) {
       var responseData = !config.responseType || config.responseType === 'text' ? request.responseText : request.response;
       var response = {
         data: responseData,
-        // IE sends 1223 instead of 204 (https://github.com/mzabriskie/axios/issues/201)
+        // IE sends 1223 instead of 204 (https://github.com/axios/axios/issues/201)
         status: request.status === 1223 ? 204 : request.status,
         statusText: request.status === 1223 ? 'No Content' : request.statusText,
         headers: responseHeaders,
@@ -1452,13 +1453,13 @@ exports.default = Context;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var FileEngine_1 = __webpack_require__(75);
+var FileEngine_1 = __webpack_require__(76);
 exports.FileEngine = FileEngine_1.default;
-var IndexedDBEngine_1 = __webpack_require__(78);
+var IndexedDBEngine_1 = __webpack_require__(79);
 exports.IndexedDBEngine = IndexedDBEngine_1.default;
-var MemoryEngine_1 = __webpack_require__(82);
+var MemoryEngine_1 = __webpack_require__(83);
 exports.MemoryEngine = MemoryEngine_1.default;
-var LocalStorageEngine_1 = __webpack_require__(83);
+var LocalStorageEngine_1 = __webpack_require__(84);
 exports.LocalStorageEngine = LocalStorageEngine_1.default;
 
 
@@ -1469,7 +1470,7 @@ exports.LocalStorageEngine = LocalStorageEngine_1.default;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var WebSocketClient_1 = __webpack_require__(88);
+var WebSocketClient_1 = __webpack_require__(89);
 exports.WebSocketClient = WebSocketClient_1.default;
 
 
@@ -1496,10 +1497,10 @@ var _4 = __webpack_require__(37);
 var _5 = __webpack_require__(39);
 var _6 = __webpack_require__(41);
 var _7 = __webpack_require__(8);
-var _8 = __webpack_require__(68);
+var _8 = __webpack_require__(69);
 var engine_1 = __webpack_require__(18);
-var _9 = __webpack_require__(84);
-var _10 = __webpack_require__(86);
+var _9 = __webpack_require__(85);
+var _10 = __webpack_require__(87);
 var _11 = __webpack_require__(19);
 var Client = (function () {
     function Client(config) {
@@ -1587,7 +1588,7 @@ var Client = (function () {
     Client.BACKEND = env_1.Backend;
     return Client;
 }());
-Client.prototype.VERSION = __webpack_require__(91).version;
+Client.prototype.VERSION = __webpack_require__(92).version;
 module.exports = Client;
 
 
@@ -1823,12 +1824,23 @@ var AuthAPI = (function () {
         enumerable: true,
         configurable: true
     });
-    AuthAPI.prototype.postCookiesRemove = function (login, labels) {
+    AuthAPI.prototype.getCookies = function (labels) {
+        var config = {
+            method: 'get',
+            params: {},
+            url: AuthAPI.URL.COOKIES,
+        };
+        if (labels) {
+            config.params.labels = labels.join(',');
+        }
+        return this.client.sendRequest(config);
+    };
+    AuthAPI.prototype.postCookiesRemove = function (password, labels, ids) {
         var config = {
             data: {
-                email: login.email,
+                ids: ids,
                 labels: labels,
-                password: login.password.toString(),
+                password: password,
             },
             method: 'post',
             url: AuthAPI.URL.COOKIES + "/remove",
@@ -3233,13 +3245,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var axios_1 = __webpack_require__(45);
 var http_1 = __webpack_require__(8);
 var PriorityQueue_1 = __webpack_require__(64);
+var Logdown = __webpack_require__(67);
 var HttpClient = (function () {
     function HttpClient(baseURL, accessTokenStore) {
+        var _this = this;
         this.baseURL = baseURL;
         this.accessTokenStore = accessTokenStore;
+        this.logger = new Logdown(this.constructor.name);
         this.requestQueue = new PriorityQueue_1.default({
             maxRetries: 0,
             retryDelay: 1000,
+        });
+        axios_1.default.interceptors.response.use(null, function (error) {
+            var backendResponse = undefined;
+            try {
+                backendResponse = JSON.stringify(error.response.data);
+            }
+            finally {
+                _this.logger.error("HTTP Error (" + error.response.status + ") on '" + error.response.config
+                    .url + "': " + error.message + " (" + backendResponse);
+            }
+            return Promise.reject(error);
         });
     }
     Object.defineProperty(HttpClient.prototype, "authAPI", {
@@ -3403,8 +3429,6 @@ var defaults = __webpack_require__(3);
 var utils = __webpack_require__(0);
 var InterceptorManager = __webpack_require__(57);
 var dispatchRequest = __webpack_require__(58);
-var isAbsoluteURL = __webpack_require__(60);
-var combineURLs = __webpack_require__(61);
 
 /**
  * Create a new instance of Axios
@@ -3435,11 +3459,6 @@ Axios.prototype.request = function request(config) {
 
   config = utils.merge(defaults, this.defaults, { method: 'get' }, config);
   config.method = config.method.toLowerCase();
-
-  // Support baseURL config
-  if (config.baseURL && !isAbsoluteURL(config.url)) {
-    config.url = combineURLs(config.baseURL, config.url);
-  }
 
   // Hook up interceptors middleware
   var chain = [dispatchRequest, undefined];
@@ -3649,6 +3668,15 @@ module.exports = function buildURL(url, params, paramsSerializer) {
 
 var utils = __webpack_require__(0);
 
+// Headers whose duplicates are ignored by node
+// c.f. https://nodejs.org/api/http.html#http_message_headers
+var ignoreDuplicateOf = [
+  'age', 'authorization', 'content-length', 'content-type', 'etag',
+  'expires', 'from', 'host', 'if-modified-since', 'if-unmodified-since',
+  'last-modified', 'location', 'max-forwards', 'proxy-authorization',
+  'referer', 'retry-after', 'user-agent'
+];
+
 /**
  * Parse headers into an object
  *
@@ -3676,7 +3704,14 @@ module.exports = function parseHeaders(headers) {
     val = utils.trim(line.substr(i + 1));
 
     if (key) {
-      parsed[key] = parsed[key] ? parsed[key] + ', ' + val : val;
+      if (parsed[key] && ignoreDuplicateOf.indexOf(key) >= 0) {
+        return;
+      }
+      if (key === 'set-cookie') {
+        parsed[key] = (parsed[key] ? parsed[key] : []).concat([val]);
+      } else {
+        parsed[key] = parsed[key] ? parsed[key] + ', ' + val : val;
+      }
     }
   });
 
@@ -3932,6 +3967,8 @@ var utils = __webpack_require__(0);
 var transformData = __webpack_require__(59);
 var isCancel = __webpack_require__(12);
 var defaults = __webpack_require__(3);
+var isAbsoluteURL = __webpack_require__(60);
+var combineURLs = __webpack_require__(61);
 
 /**
  * Throws a `Cancel` if cancellation has been requested.
@@ -3950,6 +3987,11 @@ function throwIfCancellationRequested(config) {
  */
 module.exports = function dispatchRequest(config) {
   throwIfCancellationRequested(config);
+
+  // Support baseURL config
+  if (config.baseURL && !isAbsoluteURL(config.url)) {
+    config.url = combineURLs(config.baseURL, config.url);
+  }
 
   // Ensure headers exist
   config.headers = config.headers || {};
@@ -4322,6 +4364,603 @@ exports.default = Priority;
 /* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
+/* WEBPACK VAR INJECTION */(function(process) {/**
+ * logdown - Debug utility with markdown support that runs on browser and server
+ *
+ * @version v2.2.0
+ * @link https://github.com/caiogondim/logdown
+ * @author Caio Gondim <me@caiogondim.com> (http://caiogondim.com)
+ * @license MIT
+ */
+/* global console, module, window, document, navigator, process */
+
+;(function () {
+  'use strict'
+
+  var lastUsedColorIndex = 0
+  // Solarized accent colors http://ethanschoonover.com/solarized
+  var colors = [
+    '#B58900',
+    '#CB4B16',
+    '#DC322F',
+    '#D33682',
+    '#6C71C4',
+    '#268BD2',
+    '#2AA198',
+    '#859900'
+  ]
+  // Taken from ansi-styles npm module
+  // https://github.com/sindresorhus/ansi-styles/blob/master/index.js
+  var ansiColors = {
+    modifiers: {
+      reset: [0, 0],
+      bold: [1, 22], // 21 isn't widely supported and 22 does the same thing
+      dim: [2, 22],
+      italic: [3, 23],
+      underline: [4, 24],
+      inverse: [7, 27],
+      hidden: [8, 28],
+      strikethrough: [9, 29]
+    },
+    colors: {
+      black: [30, 39],
+      red: [31, 39],
+      green: [32, 39],
+      yellow: [33, 39],
+      blue: [34, 39],
+      magenta: [35, 39],
+      cyan: [36, 39],
+      white: [37, 39],
+      gray: [90, 39]
+    },
+    bgColors: {
+      bgBlack: [40, 49],
+      bgRed: [41, 49],
+      bgGreen: [42, 49],
+      bgYellow: [43, 49],
+      bgBlue: [44, 49],
+      bgMagenta: [45, 49],
+      bgCyan: [46, 49],
+      bgWhite: [47, 49]
+    }
+  }
+  var filterRegExps = []
+
+  function Logdown (prefix, opts) {
+    if (!(this instanceof Logdown)) {
+      return new Logdown(prefix, opts)
+    }
+
+    this.opts = normalizeOpts(prefix, opts)
+
+    if (isPrefixAlreadyInUse(this.opts.prefix, Logdown._instances)) {
+      return getInstanceByPrefix(this.opts.prefix, Logdown._instances)
+    }
+
+    Logdown._instances.push(this)
+    alignPrefixes(Logdown._instances)
+    updateEnabledDisabled()
+
+    return this
+  }
+
+  //
+  // Static
+  //
+
+  Logdown._instances = []
+
+  Logdown.enable = function () {
+    Array.prototype.forEach.call(arguments, function (str) {
+      if (str[0] === '-') {
+        Logdown.disable(str.substr(1))
+      }
+
+      var regExp = prepareRegExpForPrefixSearch(str)
+
+      if (str === '*') {
+        filterRegExps = []
+      } else {
+        filterRegExps.push({
+          type: 'enable',
+          regExp: regExp
+        })
+      }
+    })
+  }
+
+  Logdown.disable = function () {
+    Array.prototype.forEach.call(arguments, function (str) {
+      if (str[0] === '-') {
+        Logdown.enable(str.substr(1))
+      }
+
+      var regExp = prepareRegExpForPrefixSearch(str)
+
+      if (str === '*') {
+        filterRegExps = [{
+          type: 'disable',
+          regExp: regExp
+        }]
+      } else {
+        filterRegExps.push({
+          type: 'disable',
+          regExp: regExp
+        })
+      }
+    })
+  }
+
+  //
+  // Public
+  //
+
+  var methods = ['debug', 'log', 'info', 'warn', 'error']
+  methods.forEach(function (method) {
+    Logdown.prototype[method] = function () {
+      if (isDisabled(this)) {
+        return
+      }
+
+      var preparedOutput
+      var args = Array.prototype.slice.call(arguments, 0)
+
+      if (isBrowser()) {
+        preparedOutput = prepareOutputToBrowser(args, this)
+
+        // IE9 workaround
+        // http://stackoverflow.com/questions/5538972/
+        //  console-log-apply-not-working-in-ie9
+        Function.prototype.apply.call(
+          console[method] || console.log,
+          console,
+          preparedOutput
+        )
+      } else if (isNode()) {
+        preparedOutput = prepareOutputToNode(args, method, this)
+        ;(console[method] || console.log).apply(
+          console,
+          preparedOutput
+        )
+      }
+    }
+  })
+
+  //
+  // Private
+  //
+
+  function normalizeOpts (prefix, opts) {
+    if (typeof prefix === 'object') opts = prefix
+    opts = opts || {}
+
+    if (typeof prefix !== 'string') prefix = opts.prefix || ''
+    prefix = sanitizeStringToBrowser(prefix)
+
+    var alignOutput = Boolean(opts.alignOutput)
+    var markdown = opts.markdown === undefined ? true : Boolean(opts.markdown)
+
+    var prefixColor
+    if (isBrowser()) {
+      prefixColor = colors[lastUsedColorIndex % colors.length]
+      lastUsedColorIndex += 1
+    } else if (isNode()) {
+      prefixColor = getNextPrefixColor()
+    }
+
+    return {
+      prefix: prefix,
+      alignOutput: alignOutput,
+      markdown: markdown,
+      prefixColor: prefixColor
+    }
+  }
+
+  function alignPrefixes (instances) {
+    var longest = instances.sort(function (a, b) {
+      return b.opts.prefix.length - a.opts.prefix.length
+    })[0]
+
+    instances.forEach(function (instance) {
+      if (instance.opts.alignOutput) {
+        var padding = new Array(Math.max(longest.opts.prefix.length - instance.opts.prefix.length + 1, 0)).join(' ')
+        instance.opts.prefix = instance.opts.prefix + padding
+      }
+    })
+  }
+
+  function updateEnabledDisabled () {
+    if (isNode()) {
+      // Parsing `NODE_DEBUG` and `DEBUG` env var.
+      var envVar = null
+      if (
+        typeof process !== 'undefined' &&
+        process.env !== undefined
+      ) {
+        // `NODE_DEBUG` has precedence over `DEBUG`
+        if (
+          process.env.NODE_DEBUG !== undefined &&
+          process.env.NODE_DEBUG !== ''
+        ) {
+          envVar = 'NODE_DEBUG'
+        } else if (
+          process.env.DEBUG !== undefined &&
+          process.env.DEBUG !== ''
+        ) {
+          envVar = 'DEBUG'
+        }
+
+        if (envVar) {
+          Logdown.disable('*')
+          process.env[envVar]
+            .split(',')
+            .forEach(function (regExp) {
+              Logdown.enable(regExp)
+            })
+        }
+      }
+    } else if (isBrowser()) {
+      if (
+        window.localStorage &&
+        typeof window.localStorage.getItem('debug') === 'string'
+      ) {
+        Logdown.disable('*')
+        window.localStorage.debug
+          .split(',')
+          .forEach(function (regExp) {
+            Logdown.enable(regExp)
+          })
+      }
+    }
+  }
+
+  function parseMarkdown (text) {
+    var styles = []
+    var match = getNextMatch(text)
+
+    while (match) {
+      text = text.replace(match.rule.regexp, match.rule.replacer)
+
+      if (isBrowser()) {
+        styles.push(match.rule.style)
+        styles.push('') // Empty string resets style.
+      }
+
+      match = getNextMatch(text)
+    }
+
+    return {text: text, styles: styles}
+  }
+
+  function getNextMatch (text) {
+    var matches = []
+    var rules = []
+    if (isBrowser()) {
+      rules = [
+        {
+          regexp: /\*([^\*]+)\*/,
+          replacer: function (match, submatch1) {
+            return '%c' + submatch1 + '%c'
+          },
+          style: 'font-weight:bold;'
+        },
+        {
+          regexp: /_([^_]+)_/,
+          replacer: function (match, submatch1) {
+            return '%c' + submatch1 + '%c'
+          },
+          style: 'font-style:italic;'
+        },
+        {
+          regexp: /`([^`]+)`/,
+          replacer: function (match, submatch1) {
+            return '%c' + submatch1 + '%c'
+          },
+          style:
+            'background:#FDF6E3; ' +
+            'color:#586E75; ' +
+            'padding:1px 5px; ' +
+            'border-radius:4px;'
+        }
+      ]
+    } else if (isNode()) {
+      rules = [
+        {
+          regexp: /\*([^\*]+)\*/,
+          replacer: function (match, submatch1) {
+            return '\u001b[' + ansiColors.modifiers.bold[0] + 'm' +
+                   submatch1 +
+                   '\u001b[' + ansiColors.modifiers.bold[1] + 'm'
+          }
+        },
+        {
+          regexp: /_([^_]+)_/,
+          replacer: function (match, submatch1) {
+            return '\u001b[' + ansiColors.modifiers.italic[0] + 'm' +
+                   submatch1 +
+                   '\u001b[' + ansiColors.modifiers.italic[1] + 'm'
+          }
+        },
+        {
+          regexp: /`([^`]+)`/,
+          replacer: function (match, submatch1) {
+            return '\u001b[' + ansiColors.bgColors.bgYellow[0] + 'm' +
+                   '\u001b[' + ansiColors.colors.black[0] + 'm' +
+                   ' ' + submatch1 + ' ' +
+                   '\u001b[' + ansiColors.colors.black[1] + 'm' +
+                   '\u001b[' + ansiColors.bgColors.bgYellow[1] + 'm'
+          }
+        }
+      ]
+    }
+
+    //
+    rules.forEach(function (rule) {
+      var match = text.match(rule.regexp)
+      if (match) {
+        matches.push({
+          rule: rule,
+          match: match
+        })
+      }
+    })
+    if (matches.length === 0) {
+      return null
+    }
+
+    //
+    matches.sort(function (a, b) {
+      return a.match.index - b.match.index
+    })
+
+    return matches[0]
+  }
+
+  function prepareOutputToBrowser (args, instance) {
+    var preparedOutput = []
+    var parsedMarkdown
+
+    if (instance.opts.prefix) {
+      if (isColorSupported()) {
+        preparedOutput.push('%c' + instance.opts.prefix + '%c ')
+        preparedOutput.push(
+          'color:' + instance.opts.prefixColor + '; font-weight:bold;',
+          '' // Empty string resets style.
+        )
+      } else {
+        preparedOutput.push('[' + instance.prefix + '] ')
+      }
+    } else {
+      preparedOutput.push('')
+    }
+
+    // Only first argument on `console` can have style.
+    if (typeof args[0] === 'string') {
+      if (instance.opts.markdown && isColorSupported()) {
+        parsedMarkdown = parseMarkdown(args[0])
+        preparedOutput[0] = preparedOutput[0] + parsedMarkdown.text
+        preparedOutput = preparedOutput.concat(parsedMarkdown.styles)
+      } else {
+        preparedOutput[0] = preparedOutput[0] + args[0]
+      }
+    } else {
+      preparedOutput[0] = args[0]
+    }
+
+    if (args.length > 1) {
+      preparedOutput = preparedOutput.concat(args.splice(1))
+    }
+
+    return preparedOutput
+  }
+
+  function prepareOutputToNode (args, method, instance) {
+    var preparedOutput = []
+
+    if (instance.opts.prefix) {
+      if (isColorSupported()) {
+        preparedOutput[0] =
+          '\u001b[' + instance.opts.prefixColor[0] + 'm' +
+          '\u001b[' + ansiColors.modifiers.bold[0] + 'm' +
+          instance.opts.prefix +
+          '\u001b[' + ansiColors.modifiers.bold[1] + 'm' +
+          '\u001b[' + instance.opts.prefixColor[1] + 'm'
+      } else {
+        preparedOutput[0] = '[' + instance.opts.prefix + ']'
+      }
+    }
+
+    if (method === 'warn') {
+      preparedOutput[0] =
+        '\u001b[' + ansiColors.colors.yellow[0] + 'm' +
+        '⚠' +
+        '\u001b[' + ansiColors.colors.yellow[1] + 'm ' +
+        (preparedOutput[0] || '')
+    } else if (method === 'error') {
+      preparedOutput[0] =
+        '\u001b[' + ansiColors.colors.red[0] + 'm' +
+        '✖' +
+        '\u001b[' + ansiColors.colors.red[1] + 'm ' +
+        (preparedOutput[0] || '')
+    } else if (method === 'info') {
+      preparedOutput[0] =
+        '\u001b[' + ansiColors.colors.blue[0] + 'm' +
+        'ℹ' +
+        '\u001b[' + ansiColors.colors.blue[1] + 'm ' +
+        (preparedOutput[0] || '')
+    } else if (method === 'debug') {
+      preparedOutput[0] =
+        '\u001b[' + ansiColors.colors.gray[0] + 'm' +
+        '🐛' +
+        '\u001b[' + ansiColors.colors.gray[1] + 'm ' +
+        (preparedOutput[0] || '')
+    }
+
+    args.forEach(function (arg) {
+      if (typeof arg === 'string') {
+        if (instance.opts.markdown) {
+          preparedOutput.push(parseMarkdown(arg).text)
+        } else {
+          preparedOutput.push(arg)
+        }
+      } else {
+        preparedOutput.push(arg)
+      }
+    })
+
+    return preparedOutput
+  }
+
+  function isDisabled (instance) {
+    var isDisabled_ = false
+    filterRegExps.forEach(function (filter) {
+      if (
+        filter.type === 'enable' &&
+        filter.regExp.test(instance.opts.prefix)
+      ) {
+        isDisabled_ = false
+      } else if (
+        filter.type === 'disable' &&
+        filter.regExp.test(instance.opts.prefix)
+      ) {
+        isDisabled_ = true
+      }
+    })
+
+    return isDisabled_
+  }
+
+  function prepareRegExpForPrefixSearch (str) {
+    return new RegExp('^' + str.replace(/\*/g, '.*?') + '$')
+  }
+
+  function isPrefixAlreadyInUse (prefix, instances) {
+    var isPrefixAlreadyInUse_ = false
+
+    instances.forEach(function (instance) {
+      if (instance.opts.prefix === prefix) {
+        isPrefixAlreadyInUse_ = true
+        return
+      }
+    })
+    return isPrefixAlreadyInUse_
+  }
+
+  function getInstanceByPrefix (prefix, instances) {
+    var instance
+
+    instances.forEach(function (instanceCur) {
+      if (instanceCur.opts.prefix === prefix) {
+        instance = instanceCur
+        return
+      }
+    })
+
+    return instance
+  }
+
+  function sanitizeStringToBrowser (str) {
+    if (typeof str === 'string') {
+      return str.replace(/%c/g, '')
+    } else {
+      return str
+    }
+  }
+
+  /**
+   * Currently only WebKit-based Web Inspectors, Firefox >= v31,
+   * and the Firebug extension (any Firefox version) are known
+   * to support "%c" CSS customizations.
+   *
+   * Code took from https://github.com/visionmedia/debug/blob/master/browser.js
+   */
+  function isColorSupported () {
+    if (isBrowser()) {
+      // Is webkit? http://stackoverflow.com/a/16459606/376773
+      var isWebkit = ('WebkitAppearance' in document.documentElement.style)
+      // Is firebug? http://stackoverflow.com/a/398120/376773
+      var isFirebug = (
+        window.console &&
+        (console.firebug || (console.exception && console.table))
+      )
+      // Is firefox >= v31?
+      // https://developer.mozilla.org/en-US/docs/Tools/
+      //  Web_Console#Styling_messages
+      var isFirefox31Plus = (
+        navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) &&
+        parseInt(RegExp.$1, 10) >= 31
+      )
+
+      return (isWebkit || isFirebug || isFirefox31Plus)
+    } else if (isNode()) {
+      if (process.stdout && !process.stdout.isTTY) {
+        return false
+      }
+
+      if (process.platform === 'win32') {
+        return true
+      }
+
+      if ('COLORTERM' in process.env) {
+        return true
+      }
+
+      if (process.env.TERM === 'dumb') {
+        return false
+      }
+
+      if (
+        /^screen|^xterm|^vt100|color|ansi|cygwin|linux/i.test(process.env.TERM)
+      ) {
+        return true
+      }
+
+      return false
+    }
+  }
+
+  function isNode () {
+    return (
+      typeof module !== 'undefined' &&
+      typeof module.exports !== 'undefined'
+    )
+  }
+
+  function isBrowser () {
+    return (typeof window !== 'undefined')
+  }
+
+  var getNextPrefixColor = (function () {
+    var lastUsed = 0
+    var nodePrefixColors = [
+      [31, 39], // red
+      [32, 39], // green
+      [33, 39], // yellow
+      [34, 39], // blue
+      [35, 39], // magenta
+      [36, 39] // cyan
+    ]
+
+    return function () {
+      lastUsed += 1
+      return nodePrefixColors[lastUsed % nodePrefixColors.length]
+    }
+  })()
+
+  // Export module
+  if (isNode()) {
+    module.exports = Logdown
+  } else if (isBrowser()) {
+    window.Logdown = Logdown
+  }
+}())
+
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)))
+
+/***/ }),
+/* 68 */
+/***/ (function(module, exports, __webpack_require__) {
+
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -4350,35 +4989,35 @@ exports.default = StatusCode;
 
 
 /***/ }),
-/* 68 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-var invitation_1 = __webpack_require__(69);
-exports.TeamInvitationAPI = invitation_1.TeamInvitationAPI;
-var member_1 = __webpack_require__(71);
-exports.MemberAPI = member_1.MemberAPI;
-var team_1 = __webpack_require__(14);
-exports.TeamAPI = team_1.TeamAPI;
-var payment_1 = __webpack_require__(73);
-exports.PaymentAPI = payment_1.PaymentAPI;
-
-
-/***/ }),
 /* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var TeamInvitationAPI_1 = __webpack_require__(70);
-exports.TeamInvitationAPI = TeamInvitationAPI_1.default;
+var invitation_1 = __webpack_require__(70);
+exports.TeamInvitationAPI = invitation_1.TeamInvitationAPI;
+var member_1 = __webpack_require__(72);
+exports.MemberAPI = member_1.MemberAPI;
+var team_1 = __webpack_require__(14);
+exports.TeamAPI = team_1.TeamAPI;
+var payment_1 = __webpack_require__(74);
+exports.PaymentAPI = payment_1.PaymentAPI;
 
 
 /***/ }),
 /* 70 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var TeamInvitationAPI_1 = __webpack_require__(71);
+exports.TeamInvitationAPI = TeamInvitationAPI_1.default;
+
+
+/***/ }),
+/* 71 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4444,18 +5083,18 @@ exports.default = TeamInvitationAPI;
 
 
 /***/ }),
-/* 71 */
+/* 72 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var MemberAPI_1 = __webpack_require__(72);
+var MemberAPI_1 = __webpack_require__(73);
 exports.MemberAPI = MemberAPI_1.default;
 
 
 /***/ }),
-/* 72 */
+/* 73 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4525,18 +5164,18 @@ exports.default = MemberAPI;
 
 
 /***/ }),
-/* 73 */
+/* 74 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var PaymentAPI_1 = __webpack_require__(74);
+var PaymentAPI_1 = __webpack_require__(75);
 exports.PaymentAPI = PaymentAPI_1.default;
 
 
 /***/ }),
-/* 74 */
+/* 75 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4601,7 +5240,7 @@ exports.default = TeamAPI;
 
 
 /***/ }),
-/* 75 */
+/* 76 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -4615,8 +5254,8 @@ var __assign = (this && this.__assign) || Object.assign || function(t) {
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var fs = __webpack_require__(76);
-var path = __webpack_require__(77);
+var fs = __webpack_require__(77);
+var path = __webpack_require__(78);
 var error_1 = __webpack_require__(1);
 var FileEngine = (function () {
     function FileEngine(storeName, options) {
@@ -4786,13 +5425,13 @@ exports.default = FileEngine;
 
 
 /***/ }),
-/* 76 */
+/* 77 */
 /***/ (function(module, exports) {
 
 module.exports = {};
 
 /***/ }),
-/* 77 */
+/* 78 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(process) {// Copyright Joyent, Inc. and other Node contributors.
@@ -5023,13 +5662,13 @@ var substr = 'ab'.substr(-1) === 'b'
 /* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)))
 
 /***/ }),
-/* 78 */
+/* 79 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var dexie_1 = __webpack_require__(79);
+var dexie_1 = __webpack_require__(80);
 var error_1 = __webpack_require__(1);
 var IndexedDBEngine = (function () {
     function IndexedDBEngine(db) {
@@ -5089,7 +5728,7 @@ exports.default = IndexedDBEngine;
 
 
 /***/ }),
-/* 79 */
+/* 80 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(global, setImmediate) {(function (global, factory) {
@@ -9697,10 +10336,10 @@ return Dexie;
 })));
 //# sourceMappingURL=dexie.js.map
 
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(16), __webpack_require__(80).setImmediate))
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(16), __webpack_require__(81).setImmediate))
 
 /***/ }),
-/* 80 */
+/* 81 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var apply = Function.prototype.apply;
@@ -9753,13 +10392,13 @@ exports._unrefActive = exports.active = function(item) {
 };
 
 // setimmediate attaches itself to the global object
-__webpack_require__(81);
+__webpack_require__(82);
 exports.setImmediate = setImmediate;
 exports.clearImmediate = clearImmediate;
 
 
 /***/ }),
-/* 81 */
+/* 82 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /* WEBPACK VAR INJECTION */(function(global, process) {(function (global, undefined) {
@@ -9952,7 +10591,7 @@ exports.clearImmediate = clearImmediate;
 /* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(16), __webpack_require__(2)))
 
 /***/ }),
-/* 82 */
+/* 83 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10042,7 +10681,7 @@ exports.default = MemoryEngine;
 
 
 /***/ }),
-/* 83 */
+/* 84 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10157,18 +10796,18 @@ exports.default = LocalStorageEngine;
 
 
 /***/ }),
-/* 84 */
+/* 85 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var SelfAPI_1 = __webpack_require__(85);
+var SelfAPI_1 = __webpack_require__(86);
 exports.SelfAPI = SelfAPI_1.default;
 
 
 /***/ }),
-/* 85 */
+/* 86 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10299,18 +10938,18 @@ exports.default = SelfAPI;
 
 
 /***/ }),
-/* 86 */
+/* 87 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var UserAPI_1 = __webpack_require__(87);
+var UserAPI_1 = __webpack_require__(88);
 exports.UserAPI = UserAPI_1.default;
 
 
 /***/ }),
-/* 87 */
+/* 88 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10443,8 +11082,8 @@ var UserAPI = (function () {
     };
     UserAPI.prototype.getUsers = function (parameters) {
         var config = {
-            params: {},
             method: 'get',
+            params: {},
             url: UserAPI.URL.USERS,
         };
         if (parameters.handles) {
@@ -10517,7 +11156,7 @@ exports.default = UserAPI;
 
 
 /***/ }),
-/* 88 */
+/* 89 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10535,8 +11174,8 @@ var __extends = (this && this.__extends) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var EventEmitter = __webpack_require__(6);
 var buffer = __webpack_require__(5);
-var Html5WebSocket = __webpack_require__(89);
-var ReconnectingWebsocket = __webpack_require__(90);
+var Html5WebSocket = __webpack_require__(90);
+var ReconnectingWebsocket = __webpack_require__(91);
 var WebSocketClient = (function (_super) {
     __extends(WebSocketClient, _super);
     function WebSocketClient(baseURL, client) {
@@ -10588,7 +11227,7 @@ exports.default = WebSocketClient;
 
 
 /***/ }),
-/* 89 */
+/* 90 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10598,7 +11237,7 @@ exports.default = WebSocket;
 
 
 /***/ }),
-/* 90 */
+/* 91 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -10820,7 +11459,7 @@ module.exports = ReconnectingWebsocket;
 
 
 /***/ }),
-/* 91 */
+/* 92 */
 /***/ (function(module, exports) {
 
 module.exports = {
@@ -10831,22 +11470,23 @@ module.exports = {
 		"./dist/commonjs/shims/node/cookie": "./dist/commonjs/shims/browser/cookie.js"
 	},
 	"dependencies": {
-		"@types/node": "8.0.41",
+		"@types/node": "8.0.47",
 		"@types/spark-md5": "3.0.0",
 		"@types/text-encoding": "0.0.32",
 		"@types/tough-cookie": "2.3.2",
 		"@wireapp/queue-priority": "0.0.12",
 		"@wireapp/store-engine": "0.1.0",
-		"axios": "0.16.2",
+		"axios": "0.17.0",
 		"html5-websocket": "2.0.1",
+		"logdown": "2.2.0",
 		"reconnecting-websocket": "3.2.2",
-		"tough-cookie": "2.3.3",
-		"spark-md5": "3.0.0"
+		"spark-md5": "3.0.0",
+		"tough-cookie": "2.3.3"
 	},
 	"devDependencies": {
 		"browser-sync": "2.18.13",
 		"concurrently": "3.5.0",
-		"cross-env": "5.1.0",
+		"cross-env": "5.1.1",
 		"husky": "0.14.3",
 		"istanbul": "0.4.5",
 		"jasmine": "2.8.0",
@@ -10855,22 +11495,30 @@ module.exports = {
 		"karma-jasmine": "1.1.0",
 		"karma-jasmine-diff-reporter": "1.1.1",
 		"karma-sourcemap-loader": "0.3.7",
-		"lint-staged": "4.2.3",
+		"lint-staged": "4.3.0",
 		"nock": "9.0.18",
 		"optimist": "0.6.1",
 		"prettier": "1.7.4",
 		"rimraf": "2.6.2",
-		"sinon": "4.0.1",
+		"sinon": "4.0.2",
 		"sinon-har-server": "0.3.0",
-		"typescript": "2.5.3",
-		"webpack": "3.8.0",
-		"webpack-dev-server": "2.9.2"
+		"typescript": "2.6.1",
+		"webpack": "3.8.1",
+		"webpack-dev-server": "2.9.4"
 	},
 	"description": "Wire API Client to send and receive data.",
 	"license": "GPL-3.0",
 	"lint-staged": {
+		"*.js": [
+			"prettier --write",
+			"git add"
+		],
+		"*.json": [
+			"prettier --print-width=200 --write",
+			"git add"
+		],
 		"*.ts": [
-			"yarn prettier",
+			"prettier --write",
 			"git add"
 		]
 	},
@@ -10893,7 +11541,8 @@ module.exports = {
 		"version": "yarn build:node && yarn pack:demo && yarn dist:demo",
 		"postversion": "git push && git push --tags && yarn pack:browser",
 		"precommit": "lint-staged",
-		"prettier": "prettier --single-quote --trailing-comma=\"all\" --no-bracket-spacing --print-width=120 --write \"src/**/*.ts\"",
+		"fix:config": "prettier --print-width=200 --write '**/*.json'",
+		"fix:script": "prettier --write '**/*.{js,ts}'",
 		"start": "yarn build:node && concurrently \"tsc -w\" \"webpack -w\" \"browser-sync start -c bs-config.js\"",
 		"test:browser": "karma start karma.conf.js",
 		"test:node": "cross-env JASMINE_CONFIG_PATH=src/test/node/support/jasmine.json jasmine",
@@ -10901,11 +11550,11 @@ module.exports = {
 		"watch": "webpack-dev-server --config webpack.config.js --open"
 	},
 	"types": "./dist/commonjs/Client.d.ts",
-	"version": "0.2.4"
+	"version": "0.2.5"
 };
 
 /***/ }),
-/* 92 */
+/* 93 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
