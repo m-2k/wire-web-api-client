@@ -1844,8 +1844,9 @@ var AuthAPI = (function () {
             },
             method: 'post',
             url: AuthAPI.URL.COOKIES + "/remove",
+            withCredentials: true,
         };
-        return this.client.sendRequest(config);
+        return this.client.sendJSON(config).then(function (response) { return response.data; });
     };
     AuthAPI.prototype.postLogin = function (login) {
         var _this = this;
@@ -1867,7 +1868,7 @@ var AuthAPI = (function () {
             method: 'post',
             url: AuthAPI.URL.ACCESS + "/" + AuthAPI.URL.LOGOUT,
         };
-        return this.client.sendJSON(config).then(function (response) { return response.data; });
+        return cookie_1.sendRequestWithCookie(this.client, config, this.engine).then(function (response) { return response.data; });
     };
     AuthAPI.prototype.postAccess = function (expiredAccessToken) {
         var config = {
@@ -3398,7 +3399,7 @@ module.exports.default = axios;
 /*!
  * Determine if an object is a Buffer
  *
- * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+ * @author   Feross Aboukhadijeh <https://feross.org>
  * @license  MIT
  */
 
@@ -11462,96 +11463,7 @@ module.exports = ReconnectingWebsocket;
 /* 92 */
 /***/ (function(module, exports) {
 
-module.exports = {
-	"author": "Wire",
-	"browser": {
-		"html5-websocket": "./dist/commonjs/shims/browser/websocket.js",
-		"./dist/commonjs/shims/node/buffer": "./dist/commonjs/shims/browser/buffer.js",
-		"./dist/commonjs/shims/node/cookie": "./dist/commonjs/shims/browser/cookie.js"
-	},
-	"dependencies": {
-		"@types/node": "8.0.47",
-		"@types/spark-md5": "3.0.0",
-		"@types/text-encoding": "0.0.32",
-		"@types/tough-cookie": "2.3.2",
-		"@wireapp/queue-priority": "0.0.12",
-		"@wireapp/store-engine": "0.1.0",
-		"axios": "0.17.0",
-		"html5-websocket": "2.0.1",
-		"logdown": "2.2.0",
-		"reconnecting-websocket": "3.2.2",
-		"spark-md5": "3.0.0",
-		"tough-cookie": "2.3.3"
-	},
-	"devDependencies": {
-		"browser-sync": "2.18.13",
-		"concurrently": "3.5.0",
-		"cross-env": "5.1.1",
-		"husky": "0.14.3",
-		"istanbul": "0.4.5",
-		"jasmine": "2.8.0",
-		"karma": "1.7.1",
-		"karma-chrome-launcher": "2.2.0",
-		"karma-jasmine": "1.1.0",
-		"karma-jasmine-diff-reporter": "1.1.1",
-		"karma-sourcemap-loader": "0.3.7",
-		"lint-staged": "4.3.0",
-		"nock": "9.0.18",
-		"optimist": "0.6.1",
-		"prettier": "1.7.4",
-		"rimraf": "2.6.2",
-		"sinon": "4.0.2",
-		"sinon-har-server": "0.3.0",
-		"typescript": "2.6.1",
-		"webpack": "3.8.1",
-		"webpack-dev-server": "2.9.4"
-	},
-	"description": "Wire API Client to send and receive data.",
-	"license": "GPL-3.0",
-	"lint-staged": {
-		"*.js": [
-			"prettier --write",
-			"git add"
-		],
-		"*.json": [
-			"prettier --print-width=200 --write",
-			"git add"
-		],
-		"*.ts": [
-			"prettier --write",
-			"git add"
-		]
-	},
-	"main": "./dist/commonjs/Client.js",
-	"name": "@wireapp/api-client",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/wireapp/wire-web-api-client.git"
-	},
-	"scripts": {
-		"build:node": "yarn && yarn clear && tsc",
-		"clear": "rimraf dist",
-		"coverage": "istanbul cover --report html ./node_modules/jasmine/bin/jasmine.js",
-		"dist:demo": "git add dist/demo.js",
-		"dist": "yarn build:node",
-		"pack:browser": "webpack --config ./webpack.browser.js",
-		"pack:demo": "webpack",
-		"pack:test": "webpack",
-		"preversion": "yarn test",
-		"version": "yarn build:node && yarn pack:demo && yarn dist:demo",
-		"postversion": "git push && git push --tags && yarn pack:browser",
-		"precommit": "lint-staged",
-		"fix:config": "prettier --print-width=200 --write '**/*.json'",
-		"fix:script": "prettier --write '**/*.{js,ts}'",
-		"start": "yarn build:node && concurrently \"tsc -w\" \"webpack -w\" \"browser-sync start -c bs-config.js\"",
-		"test:browser": "karma start karma.conf.js",
-		"test:node": "cross-env JASMINE_CONFIG_PATH=src/test/node/support/jasmine.json jasmine",
-		"test": "yarn build:node && yarn pack:test && yarn test:node && yarn test:browser",
-		"watch": "webpack-dev-server --config webpack.config.js --open"
-	},
-	"types": "./dist/commonjs/Client.d.ts",
-	"version": "0.2.5"
-};
+module.exports = {"author":"Wire","browser":{"html5-websocket":"./dist/commonjs/shims/browser/websocket.js","./dist/commonjs/shims/node/buffer":"./dist/commonjs/shims/browser/buffer.js","./dist/commonjs/shims/node/cookie":"./dist/commonjs/shims/browser/cookie.js"},"dependencies":{"@types/node":"8.0.47","@types/spark-md5":"3.0.0","@types/text-encoding":"0.0.32","@types/tough-cookie":"2.3.2","@wireapp/queue-priority":"0.0.12","@wireapp/store-engine":"0.1.0","axios":"0.17.0","html5-websocket":"2.0.1","logdown":"2.2.0","reconnecting-websocket":"3.2.2","spark-md5":"3.0.0","tough-cookie":"2.3.3"},"devDependencies":{"browser-sync":"2.18.13","concurrently":"3.5.0","cross-env":"5.1.1","husky":"0.14.3","istanbul":"0.4.5","jasmine":"2.8.0","karma":"1.7.1","karma-chrome-launcher":"2.2.0","karma-jasmine":"1.1.0","karma-jasmine-diff-reporter":"1.1.1","karma-sourcemap-loader":"0.3.7","lint-staged":"4.3.0","nock":"9.0.18","optimist":"0.6.1","prettier":"1.7.4","rimraf":"2.6.2","sinon":"4.0.2","sinon-har-server":"0.3.0","typescript":"2.6.1","webpack":"3.8.1","webpack-dev-server":"2.9.4"},"description":"Wire API Client to send and receive data.","license":"GPL-3.0","lint-staged":{"*.js":["prettier --write","git add"],"*.json":["prettier --print-width=200 --write","git add"],"*.ts":["prettier --write","git add"]},"main":"./dist/commonjs/Client.js","name":"@wireapp/api-client","repository":{"type":"git","url":"git+https://github.com/wireapp/wire-web-api-client.git"},"scripts":{"build:node":"yarn && yarn clear && tsc","clear":"rimraf dist","coverage":"istanbul cover --report html ./node_modules/jasmine/bin/jasmine.js","dist:demo":"git add dist/demo.js","dist":"yarn build:node","pack:browser":"webpack --config ./webpack.browser.js","pack:demo":"webpack","pack:test":"webpack","preversion":"yarn test","version":"yarn build:node && yarn pack:demo && yarn dist:demo","postversion":"git push && git push --tags && yarn pack:browser","precommit":"lint-staged","fix:config":"prettier --print-width=200 --write '**/*.json'","fix:script":"prettier --write '**/*.{js,ts}'","start":"yarn build:node && concurrently \"tsc -w\" \"webpack -w\" \"browser-sync start -c bs-config.js\"","test:browser":"karma start karma.conf.js","test:node":"cross-env JASMINE_CONFIG_PATH=src/test/node/support/jasmine.json jasmine","test":"yarn build:node && yarn pack:test && yarn test:node && yarn test:browser","watch":"webpack-dev-server --config webpack.config.js --open"},"types":"./dist/commonjs/Client.d.ts","version":"0.2.6"}
 
 /***/ }),
 /* 93 */
