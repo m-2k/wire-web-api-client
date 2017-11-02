@@ -20,12 +20,26 @@ export default class AuthAPI {
     };
   }
 
-  public postCookiesRemove(login: LoginData, labels?: string[]): AxiosPromise {
+  public getCookies(labels?: string[]) {
+    const config: AxiosRequestConfig = {
+      method: 'get',
+      params: {},
+      url: AuthAPI.URL.COOKIES,
+    };
+
+    if (labels) {
+      config.params.labels = labels.join(',');
+    }
+
+    return this.client.sendRequest(config);
+  }
+
+  public postCookiesRemove(password: string, labels?: string[], ids?: string[]): AxiosPromise {
     const config: AxiosRequestConfig = {
       data: {
-        email: login.email,
-        labels: labels,
-        password: login.password.toString(),
+        ids,
+        labels,
+        password,
       },
       method: 'post',
       url: `${AuthAPI.URL.COOKIES}/remove`,
