@@ -43,9 +43,10 @@ export default class AuthAPI {
       },
       method: 'post',
       url: `${AuthAPI.URL.COOKIES}/remove`,
+      withCredentials: true,
     };
 
-    return this.client.sendRequest(config);
+    return this.client.sendJSON(config).then((response: AxiosResponse) => response.data);
   }
 
   public postLogin(login: LoginData): Promise<AccessTokenData> {
