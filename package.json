@@ -1,5 +1,4 @@
 {
-  "author": "Wire",
   "browser": {
     "html5-websocket": "./dist/commonjs/shims/browser/websocket.js",
     "./dist/commonjs/shims/node/buffer": "./dist/commonjs/shims/browser/buffer.js",
@@ -45,9 +44,14 @@
   "description": "Wire API Client to send and receive data.",
   "license": "GPL-3.0",
   "lint-staged": {
-    "*.js": ["prettier --write", "git add"],
-    "*.json": ["prettier --print-width=200 --write", "git add"],
-    "*.ts": ["prettier --write", "git add"]
+    "*.{js,ts}": [
+      "prettier --write",
+      "git add"
+    ],
+    "*.json": [
+      "prettier --print-width=200 --write",
+      "git add"
+    ]
   },
   "main": "./dist/commonjs/Client.js",
   "name": "@wireapp/api-client",
